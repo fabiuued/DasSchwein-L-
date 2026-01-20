@@ -1,1 +1,334 @@
+<!DOCTYPE html> 
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bounce Blast mit Custom Image</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        h1 { margin: 10px 0; font-size: 24px; }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border: 2px solid #444;
+        }
+
+        canvas {
+            background-color: #1a1a1a;
+            display: block;
+            cursor: none; /* Maus verstecken über dem Canvas */
+        }
+
+        #ui-layer {
+            margin-top: 15px;
+            text-align: center;
+            background: #333;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        button, input {
+            padding: 8px 15px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+
+        button {
+            background-color: #00bcd4;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        button:hover { background-color: #008ba3; }
+
+        #fileInput {
+            display: none; /* Versteckter Input */
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 8px 12px;
+            cursor: pointer;
+            background: #e91e63;
+            color: white;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        #score-display {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Bounce Ball Blast</h1>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="800"></canvas>
+        <div id="score-display">Score: 0</div>
+    </div>
+
+    <div id="ui-layer">
+        <button onclick="resetGame()">Neustart</button>
+        
+        <label for="fileInput" class="custom-file-upload">
+            📷 Bild hochladen
+        </label>
+        <input id="fileInput" type="file" accept="image/*" />
+        
+        <p style="font-size: 12px; color: #aaa; margin-top:5px;">Bewege die Maus zum Zielen. Klicke Bild hochladen für eigene Bälle.</p>
+    </div>
+
+<script>
+    // --- SETUP ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('score-display');
+    const fileInput = document.getElementById('fileInput');
+
+    let score = 0;
+    let gameOver = false;
+    let frames = 0;
+    let userImage = null; // Hier wird das Bild gespeichert
+
+    // --- GAME OBJEKTE ---
+    const player = {
+        x: canvas.width / 2,
+        y: canvas.height - 50,
+        width: 40,
+        height: 40,
+        color: '#00bcd4'
+    };
+
+    let bullets = [];
+    let balls = [];
+
+    // --- BILD UPLOAD LOGIK ---
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    userImage = img; // Bild ist geladen und bereit
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // --- KLASSEN ---
+    class Bullet {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.radius = 5;
+            this.speed = 10;
+            this.markedForDeletion = false;
+        }
+        update() {
+            this.y -= this.speed;
+            if (this.y < 0) this.markedForDeletion = true;
+        }
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffeb3b';
+            ctx.fill();
+            ctx.closePath();
+        }
+    }
+
+    class Ball {
+        constructor(x, y, radius, hp) {
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+            this.hp = hp;
+            this.vx = (Math.random() - 0.5) * 4; // Zufällige X-Geschwindigkeit
+            this.vy = 2; // Start Y-Geschwindigkeit
+            this.gravity = 0.15;
+            this.friction = 0.99;
+            this.markedForDeletion = false;
+            this.color = `hsl(${Math.random() * 360}, 50%, 50%)`;
+        }
+
+        update() {
+            // Physik
+            this.vy += this.gravity;
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Wandkollision (Links/Rechts)
+            if (this.x + this.radius > canvas.width || this.x - this.radius < 0) {
+                this.vx = -this.vx;
+            }
+
+            // Bodenkollision (Bounce)
+            if (this.y + this.radius > canvas.height - 100) { 
+                this.y = canvas.height - 100 - this.radius;
+                this.vy = -this.vy * 0.95; // Energieverlust beim Aufprall
+            }
+        }
+
+        draw() {
+            ctx.save(); // Kontext speichern für Clipping
+            
+            // 1. Kreisform definieren
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.closePath();
+
+            // 2. Clipping oder Füllen
+            if (userImage) {
+                ctx.clip(); // Alles folgende Zeichnen wird auf den Kreis beschränkt
+                // Bild zentriert in den Kreis zeichnen
+                ctx.drawImage(userImage, this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
+            } else {
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+
+            // 3. Rand und Text (HP)
+            ctx.restore(); // Clipping aufheben für Text und Rand
+            
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.hp, this.x, this.y);
+        }
+    }
+
+    // --- INPUT HANDLING ---
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        player.x = e.clientX - rect.left;
+        // Begrenzung Spieler
+        if (player.x < player.width/2) player.x = player.width/2;
+        if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
+    });
+
+    // --- HAUPTSCHLEIFE ---
+    function animate() {
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '40px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
+            ctx.font = '20px Arial';
+            ctx.fillText('Score: ' + score, canvas.width/2, canvas.height/2 + 40);
+            return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        frames++;
+
+        // Spieler zeichnen
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x - player.width/2, player.y, player.width, player.height);
+
+        // Schießen (alle 10 Frames)
+        if (frames % 10 === 0) {
+            bullets.push(new Bullet(player.x, player.y));
+        }
+
+        // Bälle spawnen (alle 120 Frames)
+        if (frames % 120 === 0) {
+            const radius = 30 + Math.random() * 20;
+            const x = Math.random() * (canvas.width - radius * 2) + radius;
+            const hp = Math.floor(Math.random() * 10) + 5 + Math.floor(score/100);
+            balls.push(new Ball(x, -50, radius, hp));
+        }
+
+        // Bullets update
+        bullets.forEach((bullet, index) => {
+            bullet.update();
+            bullet.draw();
+            if (bullet.markedForDeletion) bullets.splice(index, 1);
+        });
+
+        // Bälle update & Kollision
+        balls.forEach((ball, bIndex) => {
+            ball.update();
+            ball.draw();
+
+            // Kollision Bullet <-> Ball
+            bullets.forEach((bullet, buIndex) => {
+                const dist = Math.hypot(bullet.x - ball.x, bullet.y - ball.y);
+                if (dist - ball.radius - bullet.radius < 1) {
+                    // Treffer!
+                    ball.hp--;
+                    score += 10;
+                    scoreDisplay.innerText = 'Score: ' + score;
+                    bullet.markedForDeletion = true; // Kugel weg
+                    bullets.splice(buIndex, 1);
+
+                    if (ball.hp <= 0) {
+                        ball.markedForDeletion = true;
+                    }
+                }
+            });
+
+            // Kollision Ball <-> Spieler (Game Over)
+            const distPlayer = Math.hypot(player.x - ball.x, player.y - ball.y);
+            if (distPlayer < ball.radius + player.width/2) { // Grobe Annäherung
+                gameOver = true;
+            }
+        });
+
+        // Tote Bälle entfernen
+        balls = balls.filter(ball => !ball.markedForDeletion);
+
+        requestAnimationFrame(animate);
+    }
+
+    function resetGame() {
+        score = 0;
+        frames = 0;
+        gameOver = false;
+        balls = [];
+        bullets = [];
+        scoreDisplay.innerText = 'Score: 0';
+        animate();
+    }
+
+    // Start
+    animate();
+
+</script>
+</body>
+</html>
 
