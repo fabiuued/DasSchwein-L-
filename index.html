@@ -3,151 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bounce Blast mit Custom Image</title>
+    <title>Bounce Blast V2</title>
     <style>
+        :root {
+            --bg-color: #222;
+            --text-color: white;
+            --accent-color: #00bcd4;
+        }
+
         body {
             margin: 0;
-            padding: 0;
-            background-color: #222;
-            color: white;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
+            box-sizing: border-box; /* Wichtig für Padding */
         }
 
-        h1 { margin: 10px 0; font-size: 24px; }
+        h1 { margin: 0 0 15px 0; font-size: 28px; text-align: center; }
+
+        #main-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 600px; /* Maximale Breite des Spiels */
+        }
 
         #game-container {
             position: relative;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             border: 2px solid #444;
+            border-radius: 4px;
+            overflow: hidden;
+            width: 100%;
+            /* Aspect Ratio Hack für responsive Höhe (4:3 Hochformat) */
+            height: 0;
+            padding-bottom: 133.33%; 
+            background-color: #1a1a1a;
         }
 
         canvas {
-            background-color: #1a1a1a;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: block;
-            cursor: none; /* Maus verstecken über dem Canvas */
+            /* Cursor nur verstecken, wenn man nicht gerade Buttons klicken will */
+            cursor: crosshair; 
         }
 
         #ui-layer {
-            margin-top: 15px;
+            margin-top: 20px;
             text-align: center;
             background: #333;
-            padding: 10px;
+            padding: 15px;
             border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
-        button, input {
-            padding: 8px 15px;
+        button, .custom-file-upload {
+            padding: 10px 20px;
             border-radius: 4px;
             border: none;
             cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.2s;
+            display: inline-block;
+            margin: 5px;
         }
 
         button {
-            background-color: #00bcd4;
+            background-color: var(--accent-color);
             color: white;
-            font-weight: bold;
-            font-size: 16px;
         }
 
         button:hover { background-color: #008ba3; }
 
-        #fileInput {
-            display: none; /* Versteckter Input */
-        }
+        #fileInput { display: none; }
 
         .custom-file-upload {
-            display: inline-block;
-            padding: 8px 12px;
-            cursor: pointer;
             background: #e91e63;
             color: white;
-            border-radius: 4px;
-            font-weight: bold;
-            margin-left: 10px;
         }
+        .custom-file-upload:hover { background: #c2185b; }
         
         #score-display {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 20px;
+            top: 15px;
+            left: 15px;
+            font-size: 24px;
             font-weight: bold;
+            color: var(--accent-color);
             pointer-events: none;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        .controls-info {
+            font-size: 14px; 
+            color: #aaa; 
+            margin-top: 10px;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
-    <h1>Bounce Ball Blast</h1>
+    <div id="main-wrapper">
+        <h1>Bounce Ball Blast</h1>
 
-    <div id="game-container">
-        <canvas id="gameCanvas" width="600" height="800"></canvas>
-        <div id="score-display">Score: 0</div>
-    </div>
+        <div id="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div id="score-display">Score: 0</div>
+        </div>
 
-    <div id="ui-layer">
-        <button onclick="resetGame()">Neustart</button>
-        
-        <label for="fileInput" class="custom-file-upload">
-            📷 Bild hochladen
-        </label>
-        <input id="fileInput" type="file" accept="image/*" />
-        
-        <p style="font-size: 12px; color: #aaa; margin-top:5px;">Bewege die Maus zum Zielen. Klicke Bild hochladen für eigene Bälle.</p>
+        <div id="ui-layer">
+            <button onclick="resetGame()">Neustart</button>
+            
+            <label for="fileInput" class="custom-file-upload">
+                📷 Bild für Bälle
+            </label>
+            <input id="fileInput" type="file" accept="image/*" />
+            
+            <div class="controls-info">
+                Steuerung: Maus bewegen ODER Pfeiltasten (← / →).<br>
+                Die Kanone schießt automatisch.
+            </div>
+        </div>
     </div>
 
 <script>
-    // --- SETUP ---
+    // --- SETUP & RESPONSIVE CANVAS ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreDisplay = document.getElementById('score-display');
     const fileInput = document.getElementById('fileInput');
+    const gameContainer = document.getElementById('game-container');
 
+    // Funktion, um den Canvas an den Container anzupassen
+    function resizeCanvas() {
+        // Die interne Auflösung des Canvas setzen wir fest auf einen guten Wert,
+        // CSS kümmert sich um die Darstellunggröße.
+        canvas.width = 600;
+        canvas.height = 800;
+    }
+    // Initial aufrufen und bei Fensteränderungen
+    resizeCanvas();
+    // window.addEventListener('resize', resizeCanvas); // Nicht zwingend nötig mit der neuen CSS Methode, aber sicher ist sicher.
+
+    // --- SPIEL VARIABLEN ---
     let score = 0;
     let gameOver = false;
     let frames = 0;
-    let userImage = null; // Hier wird das Bild gespeichert
+    let userImage = null;
+
+    // Keyboard Status
+    const keys = {
+        ArrowLeft: false,
+        ArrowRight: false
+    };
 
     // --- GAME OBJEKTE ---
     const player = {
         x: canvas.width / 2,
-        y: canvas.height - 50,
-        width: 40,
-        height: 40,
-        color: '#00bcd4'
+        y: canvas.height - 60, // Etwas höher gesetzt
+        width: 50,
+        height: 50,
+        color: '#00bcd4',
+        moveSpeed: 8 // Geschwindigkeit für Tastatur
     };
 
     let bullets = [];
     let balls = [];
 
-    // --- BILD UPLOAD LOGIK ---
+    // --- EVENT LISTENER (Input) ---
+    
+    // 1. Bild Upload
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const img = new Image();
-                img.onload = function() {
-                    userImage = img; // Bild ist geladen und bereit
-                }
+                img.onload = function() { userImage = img; }
                 img.src = event.target.result;
             }
             reader.readAsDataURL(file);
         }
     });
 
+    // 2. Maus Steuerung
+    canvas.addEventListener('mousemove', (e) => {
+        if (gameOver) return;
+        // Umrechnung der Mausposition auf die interne Canvas-Größe
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const mouseXpos = (e.clientX - rect.left) * scaleX;
+        
+        player.x = mouseXpos;
+        clampPlayerPosition();
+    });
+
+    // 3. Tastatur Steuerung
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            keys[e.key] = true;
+        }
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            keys[e.key] = false;
+        }
+    });
+
+    // Hilfsfunktion: Spieler im Bildschirm halten
+    function clampPlayerPosition() {
+        if (player.x < player.width/2) player.x = player.width/2;
+        if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
+    }
+
     // --- KLASSEN ---
     class Bullet {
         constructor(x, y) {
             this.x = x;
             this.y = y;
-            this.radius = 5;
-            this.speed = 10;
+            this.radius = 6;
+            this.speed = 12;
             this.markedForDeletion = false;
         }
         update() {
@@ -169,150 +258,187 @@
             this.y = y;
             this.radius = radius;
             this.hp = hp;
-            this.vx = (Math.random() - 0.5) * 4; // Zufällige X-Geschwindigkeit
-            this.vy = 2; // Start Y-Geschwindigkeit
+            this.maxHp = hp; // Für visuelles Feedback (optional später)
+            this.vx = (Math.random() < 0.5 ? -1 : 1) * (Math.random() * 2 + 1); // X-Speed: -3 bis -1 oder 1 bis 3
+            this.vy = 2;
             this.gravity = 0.15;
-            this.friction = 0.99;
+            // Energieverlust beim Bounce etwas erhöhen, damit sie nicht ewig hoch springen
+            this.bounceFactor = -0.92; 
             this.markedForDeletion = false;
-            this.color = `hsl(${Math.random() * 360}, 50%, 50%)`;
+            this.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
         }
 
         update() {
-            // Physik
             this.vy += this.gravity;
             this.x += this.vx;
             this.y += this.vy;
 
-            // Wandkollision (Links/Rechts)
+            // Wandkollision
             if (this.x + this.radius > canvas.width || this.x - this.radius < 0) {
                 this.vx = -this.vx;
             }
 
-            // Bodenkollision (Bounce)
-            if (this.y + this.radius > canvas.height - 100) { 
-                this.y = canvas.height - 100 - this.radius;
-                this.vy = -this.vy * 0.95; // Energieverlust beim Aufprall
+            // Bodenkollision (Bounce Area ist etwas über dem Spieler)
+            const groundLevel = canvas.height - 120;
+            if (this.y + this.radius > groundLevel) { 
+                this.y = groundLevel - this.radius;
+                this.vy = this.vy * this.bounceFactor;
+                // Verhindern, dass Bälle am Boden "kleben", wenn die Energie zu gering ist
+                if (Math.abs(this.vy) < 2) this.vy = 0; 
             }
         }
 
         draw() {
-            ctx.save(); // Kontext speichern für Clipping
-            
-            // 1. Kreisform definieren
+            ctx.save();
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
             ctx.closePath();
 
-            // 2. Clipping oder Füllen
             if (userImage) {
-                ctx.clip(); // Alles folgende Zeichnen wird auf den Kreis beschränkt
-                // Bild zentriert in den Kreis zeichnen
+                ctx.clip();
+                // Trickserei, damit das Bild sich nicht mitdreht, sondern stabil bleibt
                 ctx.drawImage(userImage, this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
             } else {
                 ctx.fillStyle = this.color;
                 ctx.fill();
             }
 
-            // 3. Rand und Text (HP)
-            ctx.restore(); // Clipping aufheben für Text und Rand
+            ctx.restore();
             
+            // Dickerer Rand und besser lesbarer Text
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.lineWidth = 3;
             ctx.stroke();
 
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 20px Arial';
+            ctx.font = 'bold 24px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+            // Text-Schatten für bessere Lesbarkeit auf hellen Bildern
+            ctx.shadowColor="black";
+            ctx.shadowBlur=4;
             ctx.fillText(this.hp, this.x, this.y);
+            ctx.shadowBlur=0; // Schatten resetten
         }
     }
-
-    // --- INPUT HANDLING ---
-    canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        player.x = e.clientX - rect.left;
-        // Begrenzung Spieler
-        if (player.x < player.width/2) player.x = player.width/2;
-        if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
-    });
 
     // --- HAUPTSCHLEIFE ---
     function animate() {
         if (gameOver) {
-            ctx.fillStyle = 'rgba(0,0,0,0.7)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'white';
-            ctx.font = '40px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
-            ctx.font = '20px Arial';
-            ctx.fillText('Score: ' + score, canvas.width/2, canvas.height/2 + 40);
+            drawGameOverScreen();
             return;
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         frames++;
 
-        // Spieler zeichnen
+        // Spieler Update (Tastatur)
+        if (keys.ArrowLeft) player.x -= player.moveSpeed;
+        if (keys.ArrowRight) player.x += player.moveSpeed;
+        clampPlayerPosition();
+
+        // Spieler Zeichnen (als Kanone)
+        drawPlayer();
+
+        // Schießen (etwas schneller: alle 8 Frames)
+        if (frames % 8 === 0) {
+            bullets.push(new Bullet(player.x, player.y - 20));
+        }
+
+        // Bälle spawnen (alle 100 Frames)
+        if (frames % 100 === 0) {
+            spawnBall();
+        }
+
+        updateAndDrawGameObjects();
+        checkCollisions();
+
+        requestAnimationFrame(animate);
+    }
+
+    // --- HILFSFUNKTIONEN FÜR DIE GAME LOOP ---
+
+    function drawPlayer() {
         ctx.fillStyle = player.color;
+        // Basis
         ctx.fillRect(player.x - player.width/2, player.y, player.width, player.height);
+        // Kanonenrohr
+        ctx.fillRect(player.x - 10, player.y - 20, 20, 20);
+    }
 
-        // Schießen (alle 10 Frames)
-        if (frames % 10 === 0) {
-            bullets.push(new Bullet(player.x, player.y));
-        }
+    function spawnBall() {
+        const radius = Math.random() * 25 + 25; // Radius zwischen 25 und 50
+        const x = Math.random() * (canvas.width - radius * 2) + radius;
+        
+        // --- NEUES BALANCING ---
+        // Start HP viel niedriger (2 bis 6)
+        let baseHp = Math.floor(Math.random() * 5) + 2; 
+        // HP steigt viel langsamer an (alle 300 Punkte +1 HP)
+        let scoreBonusHp = Math.floor(score / 300);
+        let hp = baseHp + scoreBonusHp;
 
-        // Bälle spawnen (alle 120 Frames)
-        if (frames % 120 === 0) {
-            const radius = 30 + Math.random() * 20;
-            const x = Math.random() * (canvas.width - radius * 2) + radius;
-            const hp = Math.floor(Math.random() * 10) + 5 + Math.floor(score/100);
-            balls.push(new Ball(x, -50, radius, hp));
-        }
+        balls.push(new Ball(x, -100, radius, hp));
+    }
 
-        // Bullets update
+    function updateAndDrawGameObjects() {
+        // Bullets
         bullets.forEach((bullet, index) => {
             bullet.update();
             bullet.draw();
             if (bullet.markedForDeletion) bullets.splice(index, 1);
         });
 
-        // Bälle update & Kollision
-        balls.forEach((ball, bIndex) => {
+        // Bälle
+        balls.forEach(ball => {
             ball.update();
             ball.draw();
+        });
+    }
 
+    function checkCollisions() {
+        balls.forEach((ball, bIndex) => {
             // Kollision Bullet <-> Ball
             bullets.forEach((bullet, buIndex) => {
-                const dist = Math.hypot(bullet.x - ball.x, bullet.y - ball.y);
-                if (dist - ball.radius - bullet.radius < 1) {
-                    // Treffer!
-                    ball.hp--;
-                    score += 10;
-                    scoreDisplay.innerText = 'Score: ' + score;
-                    bullet.markedForDeletion = true; // Kugel weg
-                    bullets.splice(buIndex, 1);
-
-                    if (ball.hp <= 0) {
-                        ball.markedForDeletion = true;
+                if (!bullet.markedForDeletion && !ball.markedForDeletion) {
+                    const dist = Math.hypot(bullet.x - ball.x, bullet.y - ball.y);
+                    // Einfache Kreis-Kollision
+                    if (dist < ball.radius + bullet.radius) {
+                        ball.hp--;
+                        score += 10;
+                        scoreDisplay.innerText = 'Score: ' + score;
+                        bullet.markedForDeletion = true;
+                        if (ball.hp <= 0) ball.markedForDeletion = true;
                     }
                 }
             });
 
-            // Kollision Ball <-> Spieler (Game Over)
-            const distPlayer = Math.hypot(player.x - ball.x, player.y - ball.y);
-            if (distPlayer < ball.radius + player.width/2) { // Grobe Annäherung
-                gameOver = true;
+            // Kollision Ball <-> Spieler (Game Over Area)
+            // Wir prüfen, ob der Ball zu tief kommt, nicht ob er den Spieler exakt berührt.
+            if (ball.y + ball.radius > player.y + 10) { 
+                 gameOver = true;
             }
         });
 
-        // Tote Bälle entfernen
-        balls = balls.filter(ball => !ball.markedForDeletion);
+        // Aufräumen
+        bullets = bullets.filter(b => !b.markedForDeletion);
+        balls = balls.filter(b => !b.markedForDeletion);
+    }
 
-        requestAnimationFrame(animate);
+    function drawGameOverScreen() {
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        
+        ctx.font = 'bold 50px sans-serif';
+        ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 20);
+        
+        ctx.font = '30px sans-serif';
+        ctx.fillStyle = '#00bcd4';
+        ctx.fillText('Final Score: ' + score, canvas.width/2, canvas.height/2 + 40);
     }
 
     function resetGame() {
@@ -322,6 +448,9 @@
         balls = [];
         bullets = [];
         scoreDisplay.innerText = 'Score: 0';
+        // Keys resetten, falls man beim Sterben noch gedrückt hat
+        keys.ArrowLeft = false;
+        keys.ArrowRight = false;
         animate();
     }
 
@@ -331,4 +460,3 @@
 </script>
 </body>
 </html>
-
