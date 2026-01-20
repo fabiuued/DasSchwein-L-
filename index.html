@@ -3,147 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bounce Blast V3</title>
+    <title>Bounce Blast Pro - Global Edition</title>
     <style>
-        :root {
-            --bg-color: #121212;
-            --accent-color: #00bcd4;
-        }
-
+        :root { --bg-color: #121212; --accent-color: #00bcd4; }
         body {
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: white;
-            font-family: sans-serif;
-            height: 100vh; /* Volle Höhe */
-            width: 100vw;
-            overflow: hidden; /* Kein Scrollen erlaubt */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            margin: 0; padding: 0; background-color: var(--bg-color); color: white;
+            font-family: sans-serif; height: 100vh; width: 100vw; overflow: hidden;
+            display: flex; flex-direction: row;
         }
 
-        /* Container für das Spielfeld */
-        #game-wrapper {
-            position: relative;
-            width: 100%;
-            height: 80vh; /* Nimmt 80% der Höhe ein */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: #1a1a1a;
+        /* Leaderboard Style */
+        #leaderboard {
+            width: 220px; background: #1a1a1a; border-right: 2px solid #333;
+            display: flex; flex-direction: column; padding: 20px; box-sizing: border-box;
+        }
+        #leaderboard h2 { font-size: 18px; color: var(--accent-color); margin-top: 0; text-align: center; }
+        #highscores-list { flex-grow: 1; }
+        .score-entry { 
+            margin: 12px 0; font-size: 14px; border-bottom: 1px solid #333; 
+            padding-bottom: 5px; display: flex; justify-content: space-between;
+        }
+        .score-entry span { color: var(--accent-color); font-weight: bold; }
+
+        /* Game Area */
+        #game-section { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        #game-wrapper { position: relative; width: 100%; height: 75vh; display: flex; justify-content: center; align-items: center; }
+        canvas { 
+            max-width: 100%; max-height: 100%; aspect-ratio: 3/4; 
+            background-color: #000; cursor: crosshair; border: 2px solid #333;
         }
 
-        canvas {
-            /* Das Canvas behält intern seine Auflösung, wird aber per CSS skaliert */
-            max-width: 100%;
-            max-height: 100%;
-            aspect-ratio: 3/4; /* Verhältnis beibehalten */
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            background-color: #000;
-            cursor: crosshair;
-        }
-
-        /* UI Bereich unter dem Spiel */
-        #ui-layer {
-            height: 20vh; /* Restliche 20% für UI */
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: #222;
-            z-index: 10;
-        }
-
-        .btn-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 5px;
-        }
-
+        #ui-layer { height: 25vh; width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #222; }
+        .btn-row { display: flex; gap: 10px; margin-bottom: 5px; }
+        
         button, .custom-file-upload {
-            padding: 10px 15px;
-            border-radius: 5px;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-            text-transform: uppercase;
+            padding: 10px 15px; border-radius: 5px; border: none; cursor: pointer;
+            font-weight: bold; font-size: 14px; text-transform: uppercase; transition: 0.2s;
         }
-
+        button:hover { opacity: 0.8; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        
         button { background-color: var(--accent-color); color: white; }
-        button:hover { background-color: #008ba3; }
-
-        .custom-file-upload { background: #e91e63; color: white; display: inline-block; }
+        .save-btn { background-color: #4caf50; display: none; }
+        .custom-file-upload { background: #e91e63; color: white; }
         #fileInput { display: none; }
 
-        #score-overlay {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 20px;
-            font-weight: bold;
-            pointer-events: none;
-            text-shadow: 1px 1px 2px black;
+        #score-overlay { position: absolute; top: 15px; left: 15px; font-size: 22px; font-weight: bold; text-shadow: 2px 2px #000; }
+        #hp-display { position: absolute; top: 15px; right: 15px; font-size: 22px; }
+
+        @media (max-width: 600px) {
+            body { flex-direction: column; }
+            #leaderboard { width: 100%; height: 120px; border-right: none; border-bottom: 2px solid #333; padding: 10px; }
+            #highscores-list { display: flex; justify-content: space-around; }
+            .score-entry { border-bottom: none; margin: 0; flex-direction: column; align-items: center; }
         }
-
-        #hp-display {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 20px;
-            color: #ff5252;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px black;
-        }
-
-        p { margin: 5px 0 0 0; font-size: 12px; color: #888; text-align: center; }
-
     </style>
 </head>
 <body>
 
-    <div id="game-wrapper">
-        <canvas id="gameCanvas" width="600" height="800"></canvas>
-        <div id="score-overlay">Score: 0</div>
-        <div id="hp-display">❤️❤️❤️❤️❤️</div>
+    <div id="leaderboard">
+        <h2>🏆 Weltweite Top 3</h2>
+        <div id="highscores-list">Lade Daten...</div>
     </div>
 
-    <div id="ui-layer">
-        <div class="btn-row">
-            <button onclick="resetGame()">Neustart</button>
-            <label for="fileInput" class="custom-file-upload">📷 Bild wählen</label>
+    <div id="game-section">
+        <div id="game-wrapper">
+            <canvas id="gameCanvas" width="600" height="800"></canvas>
+            <div id="score-overlay">Score: 0</div>
+            <div id="hp-display">❤️❤️❤️❤️❤️</div>
         </div>
-        <input id="fileInput" type="file" accept="image/*" />
-        <p>Maus oder Pfeiltasten (← →). Weiche den roten Kugeln aus!</p>
+
+        <div id="ui-layer">
+            <div class="btn-row">
+                <button onclick="resetGame()">Neustart</button>
+                <button id="saveScoreBtn" class="save-btn" onclick="saveCurrentScore()">Score Speichern</button>
+                <label for="fileInput" class="custom-file-upload">📷 Ball-Bild</label>
+            </div>
+            <input id="fileInput" type="file" accept="image/*" />
+            <p id="player-name-tag" style="margin: 5px; color: var(--accent-color); font-weight: bold;"></p>
+        </div>
     </div>
 
 <script>
+    // ==========================================
+    // DEIN GOOGLE SCRIPT LINK HIER EINFÜGEN:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxy_b0gXdESrPv_xPxTjMFwYzcw3qTraEm8qtxLyx64dl-RVeb5GUy_cMCE4vllXkKpDg/exec"; 
+    // ==========================================
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score-overlay');
     const hpEl = document.getElementById('hp-display');
-    const fileInput = document.getElementById('fileInput');
+    const saveBtn = document.getElementById('saveScoreBtn');
+    const nameTag = document.getElementById('player-name-tag');
 
-    // Globale Variablen
-    let animationId; // WICHTIG: Um die Loop sauber zu stoppen
-    let score = 0;
-    let frames = 0;
-    let gameOver = false;
-    let userImage = null;
+    let playerName = "";
+    let animationId, score = 0, frames = 0, gameOver = false, userImage = null;
+    let player = { x: 300, y: 740, w: 40, h: 40, hp: 5, invincible: 0 };
+    let bullets = [], enemyBullets = [], balls = [], keys = { ArrowLeft: false, ArrowRight: false };
 
-    // Objekte
-    let player = { x: 300, y: 740, w: 40, h: 40, hp: 5, color: '#00bcd4', invincible: 0 };
-    let bullets = [];
-    let enemyBullets = []; // Schüsse der Bälle
-    let balls = [];
-    let keys = { ArrowLeft: false, ArrowRight: false };
+    function init() {
+        playerName = prompt("Bitte gib deinen Namen für die Weltbestenliste ein:", "Spieler") || "Unbekannt";
+        nameTag.innerText = "Pilot: " + playerName;
+        loadHighscores();
+        resetGame();
+    }
+
+    // --- GLOBAL LEADERBOARD LOGIK ---
+    async function loadHighscores() {
+        const list = document.getElementById('highscores-list');
+        try {
+            const response = await fetch(GOOGLE_SCRIPT_URL);
+            const data = await response.json();
+            list.innerHTML = data.map((s, i) => 
+                `<div class="score-entry"><div>${i+1}. ${s.name}</div><span>${s.score}</span></div>`
+            ).join('');
+        } catch (err) {
+            list.innerHTML = "Fehler beim Laden.";
+            console.error(err);
+        }
+    }
+
+    async function saveCurrentScore() {
+        saveBtn.innerText = "Speichere...";
+        saveBtn.disabled = true;
+
+        const url = `${GOOGLE_SCRIPT_URL}?name=${encodeURIComponent(playerName)}&score=${score}`;
+
+        try {
+            await fetch(url, { method: 'POST' });
+            alert("Dein Score wurde weltweit übertragen!");
+            saveBtn.style.display = "none";
+            loadHighscores();
+        } catch (err) {
+            alert("Fehler beim Senden!");
+            saveBtn.disabled = false;
+            saveBtn.innerText = "Score Speichern";
+        }
+    }
 
     // --- BILD UPLOAD ---
-    fileInput.addEventListener('change', (e) => {
+    document.getElementById('fileInput').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
@@ -156,265 +156,124 @@
         }
     });
 
-    // --- STEUERUNG ---
-    // Maus
+    // --- INPUT ---
     canvas.addEventListener('mousemove', (e) => {
-        if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
-        // Skalierung berechnen, da Canvas per CSS verkleinert sein kann
-        const scaleX = canvas.width / rect.width;
-        let mouseX = (e.clientX - rect.left) * scaleX;
-        player.x = mouseX;
-        // Begrenzung
+        player.x = (e.clientX - rect.left) * (canvas.width / rect.width);
         if (player.x < player.w/2) player.x = player.w/2;
         if (player.x > canvas.width - player.w/2) player.x = canvas.width - player.w/2;
     });
-
-    // Tastatur
     window.addEventListener('keydown', e => { if(e.key in keys) keys[e.key] = true; });
     window.addEventListener('keyup', e => { if(e.key in keys) keys[e.key] = false; });
 
     // --- KLASSEN ---
     class Bullet {
-        constructor(x, y) {
-            this.x = x; this.y = y;
-            this.r = 6; this.speed = 12;
-            this.del = false;
-        }
-        update() {
-            this.y -= this.speed;
-            if (this.y < 0) this.del = true;
-        }
-        draw() {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-            ctx.fillStyle = '#ffeb3b';
-            ctx.fill();
-        }
+        constructor(x, y) { this.x = x; this.y = y; this.r = 6; this.del = false; }
+        update() { this.y -= 12; if (this.y < 0) this.del = true; }
+        draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fillStyle = '#ffeb3b'; ctx.fill(); }
     }
 
     class EnemyBullet {
-        constructor(x, y) {
-            this.x = x; this.y = y;
-            this.r = 6; 
-            this.speed = 4; // Langsamer
-            this.del = false;
-        }
-        update() {
-            this.y += this.speed;
-            if (this.y > canvas.height) this.del = true;
-        }
-        draw() {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-            ctx.fillStyle = '#ff5252'; // Rot
-            ctx.fill();
-        }
+        constructor(x, y) { this.x = x; this.y = y; this.r = 6; this.del = false; }
+        update() { this.y += 4; if (this.y > canvas.height) this.del = true; }
+        draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fillStyle = '#ff5252'; ctx.fill(); }
     }
 
     class Ball {
         constructor(x, y, r, hp) {
             this.x = x; this.y = y; this.r = r; this.hp = hp;
             this.vx = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random()*2);
-            this.vy = 2; 
-            this.gravity = 0.15;
-            this.del = false;
-            this.color = `hsl(${Math.random()*360}, 60%, 50%)`;
+            this.vy = 2; this.gravity = 0.15; this.del = false;
         }
         update() {
-            this.vy += this.gravity;
-            this.x += this.vx;
-            this.y += this.vy;
-
-            // Wände
+            this.vy += this.gravity; this.x += this.vx; this.y += this.vy;
             if (this.x + this.r > canvas.width || this.x - this.r < 0) this.vx *= -1;
-            
-            // Boden Bounce (über Spieler)
-            if (this.y + this.r > canvas.height - 80) {
-                this.y = canvas.height - 80 - this.r;
-                this.vy *= -0.92;
-                if (Math.abs(this.vy) < 2) this.vy = 0;
-            }
-
-            // Schießen (Zufällig)
-            if (frames % 60 === 0 && Math.random() < 0.3) {
-                enemyBullets.push(new EnemyBullet(this.x, this.y + this.r));
-            }
+            if (this.y + this.r > canvas.height - 80) { this.y = canvas.height - 80 - this.r; this.vy *= -0.92; }
+            if (frames % 80 === 0 && Math.random() < 0.3) enemyBullets.push(new EnemyBullet(this.x, this.y + this.r));
         }
         draw() {
             ctx.save();
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-            ctx.closePath();
-
-            if (userImage) {
-                ctx.clip();
-                // Bild sauber zeichnen ohne Grauschleier
-                ctx.drawImage(userImage, this.x - this.r, this.y - this.r, this.r*2, this.r*2);
-            } else {
-                ctx.fillStyle = this.color;
-                ctx.fill();
-            }
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.clip();
+            if (userImage) { ctx.drawImage(userImage, this.x - this.r, this.y - this.r, this.r*2, this.r*2); }
+            else { ctx.fillStyle = '#444'; ctx.fill(); }
             ctx.restore();
-
-            // Nur weißer Rand, keine Füllung über dem Bild
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Text
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 24px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            // Kleiner Schatten damit man Schrift auf weißem Bild sieht
-            ctx.shadowColor = "black";
-            ctx.shadowBlur = 4;
+            ctx.fillStyle = 'white'; ctx.font = 'bold 22px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(this.hp, this.x, this.y);
-            ctx.shadowBlur = 0;
         }
     }
 
-    // --- GAME LOOP ---
+    // --- ENGINE ---
     function animate() {
-        if (gameOver) {
-            drawGameOver();
-            return;
-        }
-
-        // Alten Loop löschen verhindern wir durch cancelAnimationFrame in resetGame,
-        // aber hier brauchen wir den neuen Frame:
+        if (gameOver) { drawGameOver(); saveBtn.style.display = "inline-block"; return; }
         animationId = requestAnimationFrame(animate);
-        
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         frames++;
 
-        // Spieler Update
-        if (keys.ArrowLeft) player.x -= 7;
-        if (keys.ArrowRight) player.x += 7;
+        if (keys.ArrowLeft) player.x -= 8;
+        if (keys.ArrowRight) player.x += 8;
         
-        // Spieler Zeichnen
-        if (player.invincible > 0) {
-            player.invincible--;
-            if (Math.floor(frames / 5) % 2 === 0) drawPlayer(); // Blinken
-        } else {
-            drawPlayer();
-        }
+        if (player.invincible > 0) { player.invincible--; if (Math.floor(frames/5)%2===0) drawPlayer(); }
+        else drawPlayer();
 
-        // Spawning
         if (frames % 8 === 0) bullets.push(new Bullet(player.x, player.y - 20));
         if (frames % 120 === 0) spawnBall();
 
-        // Updates
         bullets.forEach((b, i) => { b.update(); b.draw(); if(b.del) bullets.splice(i,1); });
         enemyBullets.forEach((eb, i) => { eb.update(); eb.draw(); if(eb.del) enemyBullets.splice(i,1); });
         
         balls.forEach(ball => {
-            ball.update();
-            ball.draw();
-            
-            // Kollision: Kugel trifft Ball
+            ball.update(); ball.draw();
             bullets.forEach(bullet => {
-                if (!bullet.del && !ball.del) {
-                    const dist = Math.hypot(bullet.x - ball.x, bullet.y - ball.y);
-                    if (dist < ball.r + bullet.r) {
-                        ball.hp--;
-                        bullet.del = true;
-                        score += 10;
-                        scoreEl.innerText = "Score: " + score;
-                        if (ball.hp <= 0) ball.del = true;
-                    }
+                if (!bullet.del && Math.hypot(bullet.x-ball.x, bullet.y-ball.y) < ball.r+bullet.r) {
+                    ball.hp--; bullet.del = true; score += 10;
+                    scoreEl.innerText = "Score: " + score;
+                    if (ball.hp <= 0) ball.del = true;
                 }
             });
-
-            // Kollision: Ball trifft Spieler
-            if (player.invincible === 0 && !ball.del) {
-                const distPlayer = Math.hypot(player.x - ball.x, player.y - ball.y);
-                if (distPlayer < ball.r + player.w/2) {
-                    playerHit();
-                }
-            }
+            if (player.invincible === 0 && Math.hypot(player.x-ball.x, player.y-ball.y) < ball.r+20) playerHit();
         });
 
-        // Kollision: Gegner-Projektil trifft Spieler
         enemyBullets.forEach(eb => {
-            if (player.invincible === 0 && !eb.del) {
-                // Einfache Rechteck vs Punkt Kollision für Spieler
-                if (eb.x > player.x - player.w/2 && eb.x < player.x + player.w/2 &&
-                    eb.y > player.y && eb.y < player.y + player.h) {
-                    eb.del = true;
-                    playerHit();
-                }
+            if (player.invincible === 0 && eb.x > player.x-20 && eb.x < player.x+20 && eb.y > player.y && eb.y < player.y+40) {
+                eb.del = true; playerHit();
             }
         });
-
         balls = balls.filter(b => !b.del);
     }
 
     function spawnBall() {
-        const r = 25 + Math.random()*25;
-        const x = Math.random() * (canvas.width - r*2) + r;
-        const hp = 3 + Math.floor(score/200);
-        balls.push(new Ball(x, -50, r, hp));
+        const r = 30 + Math.random()*20;
+        balls.push(new Ball(Math.random()*(canvas.width-100)+50, -50, r, 3 + Math.floor(score/200)));
     }
 
     function drawPlayer() {
-        ctx.fillStyle = player.color;
-        ctx.fillRect(player.x - player.w/2, player.y, player.w, player.h);
-        ctx.fillRect(player.x - 10, player.y - 15, 20, 15);
+        ctx.fillStyle = '#00bcd4';
+        ctx.fillRect(player.x - 20, player.y, 40, 40);
+        ctx.fillRect(player.x - 8, player.y - 15, 16, 15);
     }
 
     function playerHit() {
-        player.hp--;
-        player.invincible = 60; // 1 Sekunde unverwundbar (bei 60fps)
-        updateHpDisplay();
-        if (player.hp <= 0) {
-            gameOver = true;
-        }
-    }
-
-    function updateHpDisplay() {
-        let hearts = "";
-        for(let i=0; i<player.hp; i++) hearts += "❤️";
-        hpEl.innerText = hearts;
+        player.hp--; player.invincible = 60;
+        let h = ""; for(let i=0; i<player.hp; i++) h += "❤️"; hpEl.innerText = h;
+        if (player.hp <= 0) gameOver = true;
     }
 
     function drawGameOver() {
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.fillRect(0,0,canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.textAlign = 'center';
-        ctx.font = '50px Arial';
+        ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(0,0,canvas.width, canvas.height);
+        ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.font = '50px Arial';
         ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
-        ctx.font = '30px Arial';
-        ctx.fillText("Score: " + score, canvas.width/2, canvas.height/2 + 50);
     }
 
     function resetGame() {
-        // WICHTIG: Alte Animation stoppen!
         if (animationId) cancelAnimationFrame(animationId);
-
-        score = 0;
-        frames = 0;
-        gameOver = false;
-        balls = [];
-        bullets = [];
-        enemyBullets = [];
-        player.hp = 5;
-        player.x = canvas.width / 2;
-        player.invincible = 0;
-        
-        scoreEl.innerText = "Score: 0";
-        updateHpDisplay();
-        
+        score = 0; frames = 0; gameOver = false; bullets = []; enemyBullets = []; balls = [];
+        player.hp = 5; player.invincible = 0; saveBtn.style.display = "none";
+        saveBtn.disabled = false; saveBtn.innerText = "Score Speichern";
+        scoreEl.innerText = "Score: 0"; hpEl.innerText = "❤️❤️❤️❤️❤️";
         animate();
     }
 
-    // Erster Start
-    resetGame();
-
+    init();
 </script>
 </body>
 </html>
