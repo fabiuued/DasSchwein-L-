@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bounce Blast Pro - Global Edition</title>
+    <title>Bounce Blast Pro - Power-Up Edition</title>
     <style>
         :root { --bg-color: #121212; --accent-color: #00bcd4; }
         body {
@@ -50,6 +50,7 @@
 
         #score-overlay { position: absolute; top: 15px; left: 15px; font-size: 22px; font-weight: bold; text-shadow: 2px 2px #000; }
         #hp-display { position: absolute; top: 15px; right: 15px; font-size: 22px; }
+        #powerup-info { position: absolute; bottom: 10px; left: 10px; font-size: 14px; color: #ffeb3b; }
 
         @media (max-width: 600px) {
             body { flex-direction: column; }
@@ -71,6 +72,7 @@
             <canvas id="gameCanvas" width="600" height="800"></canvas>
             <div id="score-overlay">Score: 0</div>
             <div id="hp-display">❤️❤️❤️❤️❤️</div>
+            <div id="powerup-info"></div>
         </div>
 
         <div id="ui-layer">
@@ -96,81 +98,77 @@
     const hpEl = document.getElementById('hp-display');
     const saveBtn = document.getElementById('saveScoreBtn');
     const nameTag = document.getElementById('player-name-tag');
+    const pwrEl = document.getElementById('powerup-info');
 
     let playerName = "";
     let animationId, score = 0, frames = 0, gameOver = false, userImage = null;
-    let player = { x: 300, y: 740, w: 40, h: 40, hp: 5, invincible: 0 };
-    let bullets = [], enemyBullets = [], balls = [], keys = { ArrowLeft: false, ArrowRight: false };
+    let player = { x: 300, y: 740, w: 40, h: 40, hp: 5, invincible: 0, damage: 1 };
+    let bullets = [], enemyBullets = [], balls = [], powerups = [], keys = { ArrowLeft: false, ArrowRight: false };
+
+    // Power-Up Status
+    let fastFireTimer = 0;
+    let tripleShotTimer = 0;
 
     function init() {
-        playerName = prompt("Bitte gib deinen Namen für die Weltbestenliste ein:", "Spieler") || "Unbekannt";
+        playerName = prompt("Bitte gib deinen Namen für die Weltbesten liste ein:", "Spieler") || "Unbekannt";
         nameTag.innerText = "Pilot: " + playerName;
         loadHighscores();
         resetGame();
     }
 
-    // --- GLOBAL LEADERBOARD LOGIK ---
     async function loadHighscores() {
         const list = document.getElementById('highscores-list');
         try {
             const response = await fetch(GOOGLE_SCRIPT_URL);
             const data = await response.json();
-            list.innerHTML = data.map((s, i) => 
-                `<div class="score-entry"><div>${i+1}. ${s.name}</div><span>${s.score}</span></div>`
-            ).join('');
-        } catch (err) {
-            list.innerHTML = "Fehler beim Laden.";
-            console.error(err);
-        }
+            list.innerHTML = data.map((s, i) => `<div class="score-entry"><div>${i+1}. ${s.name}</div><span>${s.score}</span></div>`).join('');
+        } catch (err) { list.innerHTML = "Fehler beim Laden."; }
     }
 
     async function saveCurrentScore() {
         saveBtn.innerText = "Speichere...";
         saveBtn.disabled = true;
-
         const url = `${GOOGLE_SCRIPT_URL}?name=${encodeURIComponent(playerName)}&score=${score}`;
-
         try {
             await fetch(url, { method: 'POST' });
-            alert("Dein Score wurde weltweit übertragen!");
+            alert("Score weltweit gespeichert!");
             saveBtn.style.display = "none";
             loadHighscores();
-        } catch (err) {
-            alert("Fehler beim Senden!");
-            saveBtn.disabled = false;
-            saveBtn.innerText = "Score Speichern";
-        }
+        } catch (err) { alert("Fehler!"); saveBtn.disabled = false; saveBtn.innerText = "Score Speichern"; }
     }
-
-    // --- BILD UPLOAD ---
-    document.getElementById('fileInput').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                const img = new Image();
-                img.onload = () => { userImage = img; };
-                img.src = evt.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-
-    // --- INPUT ---
-    canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        player.x = (e.clientX - rect.left) * (canvas.width / rect.width);
-        if (player.x < player.w/2) player.x = player.w/2;
-        if (player.x > canvas.width - player.w/2) player.x = canvas.width - player.w/2;
-    });
-    window.addEventListener('keydown', e => { if(e.key in keys) keys[e.key] = true; });
-    window.addEventListener('keyup', e => { if(e.key in keys) keys[e.key] = false; });
 
     // --- KLASSEN ---
     class Bullet {
-        constructor(x, y) { this.x = x; this.y = y; this.r = 6; this.del = false; }
-        update() { this.y -= 12; if (this.y < 0) this.del = true; }
+        constructor(x, y, angle = 0) { this.x = x; this.y = y; this.r = 6; this.del = false; this.angle = angle; }
+        update() { 
+            this.y -= 12; 
+            this.x += this.angle;
+            if (this.y < 0) this.del = true; 
+        }
         draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fillStyle = '#ffeb3b'; ctx.fill(); }
+    }
+
+    class PowerUp {
+        constructor(x, y, type) {
+            this.x = x; this.y = y; this.type = type; // 0: Fast, 1: Triple, 2: Damage
+            this.size = 20; this.del = false;
+        }
+        update() { this.y += 3; if (this.y > canvas.height) this.del = true; }
+        draw() {
+            ctx.fillStyle = this.type === 0 ? '#00ff00' : (this.type === 1 ? '#e91e63' : '#ff9800');
+            ctx.beginPath();
+            if (this.type === 0) { // Dreieck (Fast Fire)
+                ctx.moveTo(this.x, this.y - 12); ctx.lineTo(this.x - 12, this.y + 12); ctx.lineTo(this.x + 12, this.y + 12);
+            } else if (this.type === 1) { // Quadrat (Triple)
+                ctx.rect(this.x - 10, this.y - 10, 20, 20);
+            } else { // Stern-ish (Permanent Damage)
+                for(let i=0; i<5; i++) {
+                    ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*15+this.x, -Math.sin((18+i*72)/180*Math.PI)*15+this.y);
+                    ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*7+this.x, -Math.sin((54+i*72)/180*Math.PI)*7+this.y);
+                }
+            }
+            ctx.closePath(); ctx.fill();
+        }
     }
 
     class EnemyBullet {
@@ -209,23 +207,58 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         frames++;
 
+        // Timers reduzieren
+        if (fastFireTimer > 0) fastFireTimer--;
+        if (tripleShotTimer > 0) tripleShotTimer--;
+        pwrEl.innerText = (fastFireTimer > 0 ? "SPEED UP " : "") + (tripleShotTimer > 0 ? "TRIPLE " : "") + (player.damage > 1 ? "DMG+"+(player.damage-1) : "");
+
+        // Player Bewegung & Teleport
         if (keys.ArrowLeft) player.x -= 8;
         if (keys.ArrowRight) player.x += 8;
+        if (player.x < 0) player.x = canvas.width;
+        if (player.x > canvas.width) player.x = 0;
         
         if (player.invincible > 0) { player.invincible--; if (Math.floor(frames/5)%2===0) drawPlayer(); }
         else drawPlayer();
 
-        if (frames % 8 === 0) bullets.push(new Bullet(player.x, player.y - 20));
+        // Schießen
+        let rate = fastFireTimer > 0 ? 4 : 8;
+        if (frames % rate === 0) {
+            if (tripleShotTimer > 0) {
+                bullets.push(new Bullet(player.x, player.y - 20, 0));
+                bullets.push(new Bullet(player.x, player.y - 20, -3));
+                bullets.push(new Bullet(player.x, player.y - 20, 3));
+            } else {
+                bullets.push(new Bullet(player.x, player.y - 20));
+            }
+        }
+
+        // Power-Up Spawn
+        let rand = Math.random() * 100;
+        if (rand < 0.01) powerups.push(new PowerUp(Math.random()*canvas.width, -20, 0));
+        else if (rand < 0.02) powerups.push(new PowerUp(Math.random()*canvas.width, -20, 1));
+        else if (rand < 0.023) powerups.push(new PowerUp(Math.random()*canvas.width, -20, 2));
+
         if (frames % 120 === 0) spawnBall();
 
         bullets.forEach((b, i) => { b.update(); b.draw(); if(b.del) bullets.splice(i,1); });
         enemyBullets.forEach((eb, i) => { eb.update(); eb.draw(); if(eb.del) enemyBullets.splice(i,1); });
+        powerups.forEach((p, i) => { 
+            p.update(); p.draw(); 
+            if (Math.hypot(player.x-p.x, player.y-p.y) < 30) {
+                if (p.type === 0) fastFireTimer = 600;
+                if (p.type === 1) tripleShotTimer = 600;
+                if (p.type === 2) player.damage += 1;
+                p.del = true;
+            }
+            if(p.del) powerups.splice(i,1);
+        });
         
         balls.forEach(ball => {
             ball.update(); ball.draw();
             bullets.forEach(bullet => {
                 if (!bullet.del && Math.hypot(bullet.x-ball.x, bullet.y-ball.y) < ball.r+bullet.r) {
-                    ball.hp--; bullet.del = true; score += 10;
+                    ball.hp -= player.damage; bullet.del = true; score += 10;
                     scoreEl.innerText = "Score: " + score;
                     if (ball.hp <= 0) ball.del = true;
                 }
@@ -266,15 +299,35 @@
 
     function resetGame() {
         if (animationId) cancelAnimationFrame(animationId);
-        score = 0; frames = 0; gameOver = false; bullets = []; enemyBullets = []; balls = [];
-        player.hp = 5; player.invincible = 0; saveBtn.style.display = "none";
-        saveBtn.disabled = false; saveBtn.innerText = "Score Speichern";
+        score = 0; frames = 0; gameOver = false; bullets = []; enemyBullets = []; balls = []; powerups = [];
+        player.hp = 5; player.invincible = 0; player.damage = 1; fastFireTimer = 0; tripleShotTimer = 0;
+        saveBtn.style.display = "none"; saveBtn.disabled = false; saveBtn.innerText = "Score Speichern";
         scoreEl.innerText = "Score: 0"; hpEl.innerText = "❤️❤️❤️❤️❤️";
         animate();
     }
+
+    // Bild-Upload Logik
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const img = new Image();
+                img.onload = () => { userImage = img; };
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        player.x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    });
+    window.addEventListener('keydown', e => { if(e.key in keys) keys[e.key] = true; });
+    window.addEventListener('keyup', e => { if(e.key in keys) keys[e.key] = false; });
 
     init();
 </script>
 </body>
 </html>
-
